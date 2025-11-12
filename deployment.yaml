@@ -15,7 +15,7 @@ spec:
       serviceAccountName: telemetry-access  # See below
       containers:
       - name: fastapi-container
-        image: us-central1-docker.pkg.dev/ultra-cinema-473010-q9/week7-repo/demo-log-ml-service:latest
+        image: us-central1-docker.pkg.dev/ultra-cinema-473010-q9/week7-repo/iris-api:latest
         ports:
         - containerPort: 8200
         readinessProbe:
