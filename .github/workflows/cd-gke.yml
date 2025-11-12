@@ -1,0 +1,84 @@
+name: CI/CD with Autoscaling for IRIS API
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  PROJECT_ID: ultra-cinema-473010-q9
+  LOCATION: us-central1
+  CLUSTER_ZONE: us-central1-a
+  CLUSTER_NAME: week7-cluster
+  REPOSITORY: iris-repo
+  IMAGE_NAME: iris-api
+
+jobs:
+  build-deploy-stress:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+    - name: Configure Docker for Artifact Registry
+      run: gcloud auth configure-docker ${{ env.LOCATION }}-docker.pkg.dev --quiet
+
+    - name: Build and Push Docker image
+      uses: docker/build-push-action@v4
+      with:
+        push: true
+        tags: ${{ env.LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+    - name: Get GKE credentials
+      uses: google-github-actions/get-gke-credentials@v1
+      with:
+        cluster_name: ${{ env.CLUSTER_NAME }}
+        location: ${{ env.CLUSTER_ZONE }}
+        project_id: ${{ env.PROJECT_ID }}
+
+    - name: Deploy to GKE (with autoscaling)
+      run: |
+        kubectl apply -f deployment.yaml
+        kubectl apply -f service.yaml
+        kubectl apply -f hpa.yaml
+        kubectl rollout status deployment/iris-api --timeout=180s
+
+    - name: Install wrk for stress testing
+      run: |
+        sudo apt-get update -y
+        sudo apt-get install -y wrk
+
+    - name: Get Service External IP
+      id: get-ip
+      run: |
+        echo "Waiting for LoadBalancer external IP..."
+        sleep 30
+        SERVICE_IP=$(kubectl get svc iris-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+        echo "SERVICE_IP=$SERVICE_IP" >> $GITHUB_ENV
+        echo "External IP: $SERVICE_IP"
+
+    - name: Run 1000 request stress test
+      run: |
+        echo "Running 1000 concurrent requests to IRIS API"
+        wrk -t8 -c1000 -d30s http://$SERVICE_IP/predict > wrk_1000.txt || true
+        cat wrk_1000.txt
+
+    - name: Run 2000 request stress test
+      run: |
+        echo "Running 2000 concurrent requests to IRIS API"
+        wrk -t8 -c2000 -d30s http://$SERVICE_IP/predict > wrk_2000.txt || true
+        cat wrk_2000.txt
+
+    - name: Upload Stress Test Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: wrk-test-results
+        path: |
+          wrk_1000.txt
+          wrk_2000.txt
+
