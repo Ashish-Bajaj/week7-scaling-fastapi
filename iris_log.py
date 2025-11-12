@@ -33,15 +33,27 @@ logger.addHandler(handler)
 # FastAPI app
 app = FastAPI()
 
-# Dummy model function
-def dummy_model(features: dict):
-    time.sleep(0.1)  # Simulate compute
-    return {"prediction": 42, "confidence": 0.99}
+
+# IRIS Pipeline
+import joblib
+import numpy as np
+
+model = joblib.load("model.joblib")
+
+def iris_model(features: dict):
+    X = np.array([[features["sepal_length"], features["sepal_width"],
+                   features["petal_length"], features["petal_width"]]])
+    prediction = model.predict(X)[0]
+    return {"prediction": int(prediction)}
+
+
 
 # Input schema
 class Input(BaseModel):
-    feature1: float
-    feature2: float
+    sepal_length: float
+    sepal_width: float
+    petal_length: float
+    petal_width: float
 
 
 # Simulated flags, normally these would be set by various parts of the code
@@ -99,7 +111,7 @@ async def predict(input: Input, request: Request):
 
         try:
             input_data = input.dict()
-            result = dummy_model(input_data)
+            result = iris_model(input_data)
             latency = round((time.time() - start_time) * 1000, 2)
 
             logger.info(json.dumps({

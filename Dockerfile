@@ -14,4 +14,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 8200
 
 # 6. Command to run the server
-CMD ["uvicorn", "demo_log:app", "--host", "0.0.0.0", "--port", "8200"]
+CMD ["uvicorn", "iris_log:app", "--host", "0.0.0.0", "--port", "8200"]
