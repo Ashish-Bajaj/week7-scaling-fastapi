@@ -43,10 +43,13 @@ jobs:
 
     - name: Deploy to GKE (with autoscaling)
       run: |
+        echo "Deploying IRIS API and applying autoscaler..."
         kubectl apply -f deployment.yaml
         kubectl apply -f service.yaml
         kubectl apply -f hpa.yaml
-        kubectl rollout status deployment/iris-api --timeout=180s
+
+        # Wait for deployment rollout
+        kubectl rollout status deployment/demo-log-ml-service --timeout=180s
 
     - name: Install wrk for stress testing
       run: |
@@ -57,8 +60,8 @@ jobs:
       id: get-ip
       run: |
         echo "Waiting for LoadBalancer external IP..."
-        sleep 30
-        SERVICE_IP=$(kubectl get svc iris-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+        sleep 60
+        SERVICE_IP=$(kubectl get svc demo-log-ml-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
         echo "SERVICE_IP=$SERVICE_IP" >> $GITHUB_ENV
         echo "External IP: $SERVICE_IP"
 
@@ -81,4 +84,3 @@ jobs:
         path: |
           wrk_1000.txt
           wrk_2000.txt
-
